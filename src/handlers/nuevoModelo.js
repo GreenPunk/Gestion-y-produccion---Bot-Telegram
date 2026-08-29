@@ -49,6 +49,10 @@ export async function manejarTextoLibreCargando(ctx, sesion, texto) {
     ? `${sesion.contexto.texto_original}\n\nAclaración del usuario: ${texto}`
     : texto;
 
+  // La interpretación llama a la API de Claude y puede tardar varios
+  // segundos — avisamos para que no parezca que el bot se colgó.
+  await ctx.reply("Dale, dejame interpretarlo...");
+
   let resultado;
   try {
     resultado = await interpretarTexto(textoOriginal);
