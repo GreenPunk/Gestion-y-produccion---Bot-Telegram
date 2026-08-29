@@ -16,11 +16,11 @@
  * por "preguntas", guardar en Supabase, etc.).
  */
 
-const Anthropic = require('@anthropic-ai/sdk');
-const {
+import Anthropic from '@anthropic-ai/sdk';
+import {
   INTENT_ROUTER_SYSTEM_PROMPT,
   INTERPRETATION_SYSTEM_PROMPT,
-} = require('../prompts');
+} from '../prompts.js';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -75,7 +75,7 @@ function extraerTexto(response) {
  *   entidades: { modelo: ?string, pieza: ?string, maquina: ?string, parametro: ?string, valor_nuevo: ?string }
  * }>}
  */
-async function clasificarIntencion(mensaje, contexto = []) {
+export async function clasificarIntencion(mensaje, contexto = []) {
   const bloqueContexto = contexto.length
     ? `Contexto de la conversación (más reciente al final):\n` +
       contexto.map((m) => `${m.rol === 'usuario' ? 'Usuario' : 'Bot'}: ${m.texto}`).join('\n') +
@@ -118,7 +118,7 @@ async function clasificarIntencion(mensaje, contexto = []) {
  *   preguntas: string[]
  * }>}
  */
-async function interpretarTexto(texto) {
+export async function interpretarTexto(texto) {
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4000,
@@ -140,8 +140,3 @@ async function interpretarTexto(texto) {
 
   return resultado;
 }
-
-module.exports = {
-  clasificarIntencion,
-  interpretarTexto,
-};
