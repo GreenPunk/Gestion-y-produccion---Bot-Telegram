@@ -4,7 +4,12 @@ import { Bot, webhookCallback } from "grammy";
 import { handleStart } from "./handlers/start.js";
 import { handleListar } from "./handlers/listar.js";
 import { handleVer } from "./handlers/ver.js";
-import { reiniciarSesion, obtenerSesion } from "./session.js";
+import {
+  iniciarNuevoModelo,
+  manejarTextoLibreCargando,
+  manejarCallbackNuevoModelo,
+} from "./handlers/nuevoModelo.js";
+import { reiniciarSesion, obtenerSesion, ESTADOS } from "./session.js";
 
 const requiredEnv = ["TELEGRAM_BOT_TOKEN", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "ANTHROPIC_API_KEY"];
 for (const key of requiredEnv) {
@@ -18,6 +23,7 @@ const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 
 bot.command("start", handleStart);
 bot.command("listar", handleListar);
+bot.command("nuevo_modelo", iniciarNuevoModelo);
 
 bot.command("ver", async (ctx) => {
   const nombre = ctx.match?.trim();
@@ -34,9 +40,6 @@ bot.command("cancelar", async (ctx) => {
 });
 
 // Stubs — se completan en las próximas fases
-bot.command("nuevo_modelo", async (ctx) => {
-  await ctx.reply("La carga guiada de modelos nuevos se implementa en la Fase 3/5. Todavía no está activa.");
-});
 bot.command("modificar", async (ctx) => {
   await ctx.reply("La edición por lista/lenguaje natural se implementa en la Fase 5. Todavía no está activa.");
 });
@@ -47,13 +50,29 @@ bot.command("borrar", async (ctx) => {
   await ctx.reply("El borrado de modelos se implementa en la Fase 5. Todavía no está activo.");
 });
 
-// Mensajes en lenguaje natural (sin comando): por ahora solo confirma que
-// llegó. El router de intención completo (Claude interpretando qué quiere
-// hacer el usuario) se implementa en la Fase 3.
+// Botones inline del flujo de carga de modelo nuevo (Confirmar / Editar / Cancelar)
+bot.callbackQuery(/^nuevo_modelo:(confirmar|editar|cancelar)$/, async (ctx) => {
+  const sesion = await obtenerSesion(ctx.from.id);
+  const accion = ctx.match[1];
+  await manejarCallbackNuevoModelo(ctx, sesion, accion);
+});
+
+// Mensajes en lenguaje natural (sin comando).
+// Por ahora: si el usuario está en medio de la carga de un modelo nuevo
+// (estado CARGANDO_MODELO), cualquier texto libre se interpreta como parte
+// de esa carga. El router de intención completo (para detectar "ver_modelo",
+// "modificar_directo", etc. sin pasar por comandos) se cablea en un paso
+// siguiente de la Fase 5.
 bot.on("message:text", async (ctx) => {
   const sesion = await obtenerSesion(ctx.from.id);
+
+  if (sesion.estado === ESTADOS.CARGANDO_MODELO) {
+    await manejarTextoLibreCargando(ctx, sesion, ctx.message.text);
+    return;
+  }
+
   await ctx.reply(
-    `Por ahora todavía no interpreto lenguaje natural libre (eso es la Fase 3). ` +
+    `Por ahora todavía no interpreto lenguaje natural libre fuera de la carga de un modelo (eso sigue en la Fase 5). ` +
       `Usá /start para ver los comandos disponibles. (Tu estado actual: ${sesion.estado})`
   );
 });

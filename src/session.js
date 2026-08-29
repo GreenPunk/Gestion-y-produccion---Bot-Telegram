@@ -1,10 +1,10 @@
 import { supabase } from "./supabase.js";
 
-// Estados posibles del bot para un usuario. Se amplía en la Fase 5
-// (carga guiada, edición por campo, navegación por lista, etc.)
+// Estados posibles del bot para un usuario.
 export const ESTADOS = {
   IDLE: "idle",
   CARGANDO_MODELO: "cargando_modelo",
+  CARGANDO_MODELO_CONFIRMANDO: "cargando_modelo_confirmando",
   MODIFICANDO: "modificando",
 };
 
