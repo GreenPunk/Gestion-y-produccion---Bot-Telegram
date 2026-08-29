@@ -21,7 +21,7 @@
 // 1. ROUTER DE INTENCIÓN
 // ---------------------------------------------------------------------------
 
-const INTENT_ROUTER_SYSTEM_PROMPT = `Sos el router de intención de un bot de Telegram que administra un catálogo
+export const INTENT_ROUTER_SYSTEM_PROMPT = `Sos el router de intención de un bot de Telegram que administra un catálogo
 de modelos de muebles de una fábrica. Tu única tarea es clasificar el último
 mensaje del usuario y, si corresponde, extraer las entidades que menciona.
 
@@ -101,7 +101,7 @@ objeto JSON válido, sin backticks, sin markdown, sin texto antes o después.
 // 2. INTERPRETACIÓN DE TEXTO LIBRE → ÁRBOL JERÁRQUICO
 // ---------------------------------------------------------------------------
 
-const INTERPRETATION_SYSTEM_PROMPT = `Sos el intérprete técnico de un bot de catálogo de modelos de muebles de
+export const INTERPRETATION_SYSTEM_PROMPT = `Sos el intérprete técnico de un bot de catálogo de modelos de muebles de
 una fábrica. Convertís la descripción en texto libre que te pasa el
 usuario (a veces prolija, a veces con abreviaturas o jerga de taller) en
 un árbol de datos jerárquico y estructurado, listo para insertar en la
@@ -268,8 +268,3 @@ Salida esperada (resumida, mismo formato que arriba):
     "No se especificaron las medidas del barreno de la tabla frente, ¿las tenés a mano?"
   ]
 }`;
-
-module.exports = {
-  INTENT_ROUTER_SYSTEM_PROMPT,
-  INTERPRETATION_SYSTEM_PROMPT,
-};
