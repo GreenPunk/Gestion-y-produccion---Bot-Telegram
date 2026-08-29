@@ -19,6 +19,17 @@ for (const key of requiredEnv) {
   }
 }
 
+// Red de seguridad: cualquier error no atrapado en algún handler NO debe
+// tumbar el proceso entero (eso generaba un loop de crashes en Render cada
+// vez que una llamada a la API de Claude tardaba más de lo esperado).
+// Se loguea para poder diagnosticarlo, pero el servidor sigue vivo.
+process.on("unhandledRejection", (err) => {
+  console.error("unhandledRejection:", err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("uncaughtException:", err);
+});
+
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 
 bot.command("start", handleStart);
@@ -58,11 +69,6 @@ bot.callbackQuery(/^nuevo_modelo:(confirmar|editar|cancelar)$/, async (ctx) => {
 });
 
 // Mensajes en lenguaje natural (sin comando).
-// Por ahora: si el usuario está en medio de la carga de un modelo nuevo
-// (estado CARGANDO_MODELO), cualquier texto libre se interpreta como parte
-// de esa carga. El router de intención completo (para detectar "ver_modelo",
-// "modificar_directo", etc. sin pasar por comandos) se cablea en un paso
-// siguiente de la Fase 5.
 bot.on("message:text", async (ctx) => {
   const sesion = await obtenerSesion(ctx.from.id);
 
@@ -87,6 +93,11 @@ app.get("/", (_req, res) => {
 app.use(
   webhookCallback(bot, "express", {
     secretToken: process.env.TELEGRAM_WEBHOOK_SECRET,
+    // Interpretar texto libre implica una llamada a la API de Claude, que
+    // puede tardar más que los 10s que grammy espera por defecto. Le damos
+    // más margen y evitamos que un timeout tire una excepción sin atrapar.
+    timeoutMilliseconds: 60_000,
+    onTimeout: "return",
   })
 );
 
