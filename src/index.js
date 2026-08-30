@@ -10,6 +10,7 @@ import {
   manejarCallbackNuevoModelo,
 } from "./handlers/nuevoModelo.js";
 import { verPrecios, actualizarPreciosDesdeTexto } from "./handlers/precios.js";
+import { clasificarIntencion } from "./services/claudeService.js";
 import { reiniciarSesion, obtenerSesion, ESTADOS } from "./session.js";
 
 const requiredEnv = ["TELEGRAM_BOT_TOKEN", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "ANTHROPIC_API_KEY"];
@@ -79,17 +80,99 @@ bot.callbackQuery(/^nuevo_modelo:(confirmar|editar|cancelar)$/, async (ctx) => {
 });
 
 // Mensajes en lenguaje natural (sin comando).
+// Mensajes en lenguaje natural (sin comando).
+//
+// - Si el usuario está en medio de la carga de un modelo nuevo (estado
+//   CARGANDO_MODELO), el texto se interpreta como parte de esa carga.
+// - Si no hay ningún flujo activo (estado IDLE), se clasifica la intención
+//   con Claude y se rutea a la acción correspondiente, así los comandos
+//   explícitos (/ver, /listar, /precios, etc.) y el lenguaje natural
+//   equivalente hacen exactamente lo mismo.
+// - En cualquier otro estado (ej. esperando que se toque un botón durante
+//   la confirmación de un modelo nuevo), se avisa que hay algo pendiente.
 bot.on("message:text", async (ctx) => {
   const sesion = await obtenerSesion(ctx.from.id);
+  const texto = ctx.message.text;
 
   if (sesion.estado === ESTADOS.CARGANDO_MODELO) {
-    await manejarTextoLibreCargando(ctx, sesion, ctx.message.text);
+    await manejarTextoLibreCargando(ctx, sesion, texto);
     return;
   }
 
+  if (sesion.estado === ESTADOS.IDLE) {
+    let clasificacion;
+    try {
+      clasificacion = await clasificarIntencion(texto);
+    } catch (err) {
+      console.error(err);
+      await ctx.reply("Uy, no pude interpretar eso. Usá /start para ver los comandos disponibles.");
+      return;
+    }
+
+    const { intencion, confianza, entidades } = clasificacion;
+
+    if (confianza === "baja" || intencion === "otro") {
+      await ctx.reply(
+        "No estoy seguro de qué querés hacer. Usá /start para ver los comandos disponibles, o intentá reformularlo."
+      );
+      return;
+    }
+
+    switch (intencion) {
+      case "nuevo_modelo":
+        await iniciarNuevoModelo(ctx);
+        return;
+
+      case "ver_modelo":
+        if (!entidades.modelo) {
+          await ctx.reply("¿Qué modelo querés ver?");
+          return;
+        }
+        await handleVer(ctx, entidades.modelo);
+        return;
+
+      case "listar":
+        await handleListar(ctx);
+        return;
+
+      case "ver_precios":
+        await verPrecios(ctx);
+        return;
+
+      case "actualizar_precios":
+        await actualizarPreciosDesdeTexto(ctx, texto);
+        return;
+
+      case "cancelar":
+        await reiniciarSesion(ctx.from.id);
+        await ctx.reply("Listo, cancelado.");
+        return;
+
+      case "confirmar":
+        await ctx.reply("No tengo ninguna confirmación pendiente en este momento.");
+        return;
+
+      case "modificar_navegacion":
+      case "modificar_directo":
+        await ctx.reply("La edición por lista/lenguaje natural se implementa en la Fase 5. Todavía no está activa.");
+        return;
+
+      case "borrar_modelo":
+        await ctx.reply("El borrado de modelos se implementa en la Fase 5. Todavía no está activo.");
+        return;
+
+      case "fotos":
+        await ctx.reply("El manejo de fotos se implementa en la Fase 4. Todavía no está activo.");
+        return;
+
+      default:
+        await ctx.reply("Usá /start para ver los comandos disponibles.");
+        return;
+    }
+  }
+
   await ctx.reply(
-    `Por ahora todavía no interpreto lenguaje natural libre fuera de la carga de un modelo (eso sigue en la Fase 5). ` +
-      `Usá /start para ver los comandos disponibles. (Tu estado actual: ${sesion.estado})`
+    `Tenés algo pendiente en curso — usá los botones del mensaje anterior, o mandá /cancelar. (Tu estado actual: ${sesion.estado})`
   );
 });
 
