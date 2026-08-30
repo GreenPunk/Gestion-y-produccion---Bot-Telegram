@@ -55,6 +55,17 @@ objeto JSON válido, sin backticks, sin markdown, sin texto antes o después.
 - "listar": el usuario quiere ver todos los modelos cargados.
   Ej: "qué modelos tenemos", "listame los muebles".
 
+- "ver_precios": el usuario quiere ver la lista de precios de las tareas de
+  producción (elaboración, tinte claro/medio/oscuro, laqueado, reparación).
+  Ej: "mostrame los precios", "cuánto sale el laqueado", "qué precio tiene
+  el tinte oscuro".
+
+- "actualizar_precios": el usuario quiere cargar o cambiar uno o más
+  precios de tareas. Ej: "guardá el laqueado en 1200", "guardar precio
+  para todas las tinturas: ARS 8000", "el tinte oscuro ahora sale 950".
+  No hace falta extraer el precio acá — con detectar la intención alcanza,
+  otro paso posterior se encarga de interpretar los valores exactos.
+
 - "borrar_modelo": el usuario quiere borrar un modelo completo (no un campo
   puntual). Ej: "borrá el modelo Milán", "eliminá la Roma entera".
 
@@ -300,16 +311,38 @@ antes o después.
   ]
 }
 
+## Referencias grupales (importante)
+
+El usuario puede referirse a varias tareas de una sola vez en vez de nombrarlas
+una por una. Expandí estas referencias a TODAS las tareas que corresponda,
+cada una como una entrada separada en "actualizaciones" con el mismo precio:
+
+- "todas las tinturas", "todos los tintes", "cualquier tinte", "tinte en
+  general" → expandir a las tres: tinte_claro, tinte_medio, tinte_oscuro.
+- "todo el pintado", "toda la pintura" → expandir a las cuatro: tinte_claro,
+  tinte_medio, tinte_oscuro, laqueado.
+- "todas las tareas", "todo" (sin más contexto) → expandir a las 6.
+
+Si el usuario da un precio único para el grupo, aplicá ese mismo precio a
+cada tarea del grupo (una entrada por tarea en el array, no una entrada
+grupal). Si además aclara un precio distinto para alguna tarea puntual
+dentro del mismo mensaje (ej: "todas las tinturas a 8000, pero el oscuro a
+9000"), esa aclaración puntual tiene prioridad sobre el precio grupal para
+esa tarea específica.
+
 ## Reglas importantes
 
 - Mapeá variaciones de redacción a la tarea correcta: "tinte claro", "claro",
   "pintado claro" → "tinte_claro". "laqueado", "laca" → "laqueado".
   "armado", "elaboración", "estructura nueva" → "elaboracion". Etc.
-- Si una tarea mencionada no se puede mapear con confianza a una de las 6,
-  NO inventes ni la fuerces a la más parecida — ponela en "no_reconocido"
-  con el fragmento de texto original, para que el usuario la aclare.
+- Si una tarea mencionada no se puede mapear con confianza a una de las 6
+  (ni individualmente ni como parte de un grupo reconocido de los de
+  arriba), NO inventes ni la fuerces a la más parecida — ponela en
+  "no_reconocido" con el fragmento de texto original, para que el usuario
+  la aclare.
 - El precio es siempre un número (podés interpretar "1.200", "1200", "$1200",
-  "1200 pesos" — todos como 1200), sin decimales de miles ni símbolos.
+  "1200 pesos", "ARS 8000" — todos sin símbolo de moneda ni decimales de
+  miles).
 - Si el usuario menciona la misma tarea dos veces con precios distintos en el
   mismo mensaje, usá el último valor mencionado (asumí que se corrigió a sí
   mismo) y no lo dupliques en el array.
