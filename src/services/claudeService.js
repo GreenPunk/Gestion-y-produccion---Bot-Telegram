@@ -20,6 +20,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import {
   INTENT_ROUTER_SYSTEM_PROMPT,
   INTERPRETATION_SYSTEM_PROMPT,
+  PRECIOS_SYSTEM_PROMPT,
 } from '../prompts.js';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -152,6 +153,40 @@ export async function interpretarTexto(texto) {
   // Normalizamos por si Claude omite el campo en vez de devolver [].
   resultado.parametros_generales = resultado.parametros_generales || [];
   resultado.preguntas = resultado.preguntas || [];
+
+  return resultado;
+}
+
+
+/**
+ * Interpreta texto libre que menciona precios de tareas y devuelve las
+ * actualizaciones a aplicar en la tabla precios_tareas, más cualquier
+ * mención que no se haya podido mapear con confianza a una de las 6 tareas
+ * conocidas (para pedirle aclaración al usuario en vez de adivinar).
+ *
+ * @param {string} texto - ej: "el laqueado sale 1200, tinte claro 800"
+ * @returns {Promise<{
+ *   actualizaciones: Array<{ tipo_tarea: string, precio_unitario: number }>,
+ *   no_reconocido: string[]
+ * }>}
+ */
+export async function interpretarPrecios(texto) {
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 1000,
+    system: PRECIOS_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: texto }],
+  });
+
+  const resultado = limpiarYParsearJSON(extraerTexto(response), response.stop_reason);
+
+  if (!Array.isArray(resultado.actualizaciones)) {
+    throw new Error(
+      `Respuesta de interpretación de precios incompleta: ${JSON.stringify(resultado)}`
+    );
+  }
+
+  resultado.no_reconocido = resultado.no_reconocido || [];
 
   return resultado;
 }
