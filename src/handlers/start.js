@@ -1,6 +1,6 @@
 export async function handleStart(ctx) {
   await ctx.reply(
-    "Hola! Soy el catálogo de modelos de muebles.\n\n" +
+    "Hola! Soy el catálogo de modelos de muebles y el registro de producción.\n\n" +
       "Podés escribirme en lenguaje natural (ej: 'mostrame la Roma', 'quiero cargar un modelo nuevo') " +
       "o usar los comandos:\n" +
       "/nuevo_modelo — cargar un mueble nuevo\n" +
@@ -9,6 +9,7 @@ export async function handleStart(ctx) {
       "/modificar [nombre] — editar o borrar datos de un modelo\n" +
       "/fotos [nombre] — agregar, borrar o reemplazar fotos\n" +
       "/borrar [nombre] — borrar un modelo completo\n" +
+      "/precios — ver o actualizar los precios de las tareas de producción\n" +
       "/cancelar — cancelar lo que esté en curso"
   );
 }
