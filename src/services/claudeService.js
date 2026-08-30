@@ -32,7 +32,7 @@ const MODEL = 'claude-sonnet-4-6';
  * instrucción de no hacerlo. Esto lo pela de forma defensiva antes de
  * parsear, para no romper el flujo por un capricho de formato.
  */
-function limpiarYParsearJSON(textoCrudo) {
+function limpiarYParsearJSON(textoCrudo, stopReason) {
   const limpio = textoCrudo
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
@@ -42,9 +42,24 @@ function limpiarYParsearJSON(textoCrudo) {
   try {
     return JSON.parse(limpio);
   } catch (err) {
+    // Log completo (sin recortar) para poder diagnosticar en los logs de
+    // Render, aparte del mensaje corto que sube el error hacia el handler.
+    console.error('JSON crudo que no se pudo parsear (stop_reason:', stopReason, '):');
+    console.error(textoCrudo);
+
+    if (stopReason === 'max_tokens') {
+      // Se cortó por límite de tokens, no es un problema de formato: la
+      // respuesta quedó incompleta a mitad de camino.
+      const error = new Error(
+        'La respuesta de Claude se cortó por exceder el límite de tokens antes de terminar el JSON.'
+      );
+      error.truncadoPorTokens = true;
+      throw error;
+    }
+
     throw new Error(
       `No se pudo interpretar la respuesta de Claude como JSON. ` +
-      `Respuesta cruda: ${textoCrudo.slice(0, 500)}`
+      `Respuesta cruda (primeros 500 caracteres): ${textoCrudo.slice(0, 500)}`
     );
   }
 }
@@ -89,7 +104,7 @@ export async function clasificarIntencion(mensaje, contexto = []) {
     messages: [{ role: 'user', content: bloqueContexto }],
   });
 
-  const resultado = limpiarYParsearJSON(extraerTexto(response));
+  const resultado = limpiarYParsearJSON(extraerTexto(response), response.stop_reason);
 
   if (!resultado.intencion || !resultado.entidades) {
     throw new Error(
@@ -121,12 +136,12 @@ export async function clasificarIntencion(mensaje, contexto = []) {
 export async function interpretarTexto(texto) {
   const response = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 4000,
+    max_tokens: 8192,
     system: INTERPRETATION_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: texto }],
   });
 
-  const resultado = limpiarYParsearJSON(extraerTexto(response));
+  const resultado = limpiarYParsearJSON(extraerTexto(response), response.stop_reason);
 
   if (!resultado.modelo || !Array.isArray(resultado.piezas)) {
     throw new Error(
