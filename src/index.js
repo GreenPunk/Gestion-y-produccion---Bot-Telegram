@@ -9,6 +9,7 @@ import {
   manejarTextoLibreCargando,
   manejarCallbackNuevoModelo,
 } from "./handlers/nuevoModelo.js";
+import { verPrecios, actualizarPreciosDesdeTexto } from "./handlers/precios.js";
 import { reiniciarSesion, obtenerSesion, ESTADOS } from "./session.js";
 
 const requiredEnv = ["TELEGRAM_BOT_TOKEN", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "ANTHROPIC_API_KEY"];
@@ -35,6 +36,15 @@ const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 bot.command("start", handleStart);
 bot.command("listar", handleListar);
 bot.command("nuevo_modelo", iniciarNuevoModelo);
+
+bot.command("precios", async (ctx) => {
+  const texto = ctx.match?.trim();
+  if (!texto) {
+    await verPrecios(ctx);
+    return;
+  }
+  await actualizarPreciosDesdeTexto(ctx, texto);
+});
 
 bot.command("ver", async (ctx) => {
   const nombre = ctx.match?.trim();
