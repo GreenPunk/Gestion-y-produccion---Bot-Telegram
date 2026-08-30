@@ -58,6 +58,16 @@ export async function manejarTextoLibreCargando(ctx, sesion, texto) {
     resultado = await interpretarTexto(textoOriginal);
   } catch (err) {
     console.error(err);
+
+    if (err.truncadoPorTokens) {
+      await ctx.reply(
+        "El modelo que describiste es muy grande para procesarlo de una — se cortó a mitad de camino. " +
+          "Probá partirlo en dos mensajes (por ejemplo, primero las medidas generales y la mitad de las piezas, " +
+          "después el resto) y lo voy combinando."
+      );
+      return;
+    }
+
     await ctx.reply(
       "Uy, no pude interpretar ese texto. Probá reformularlo, o mandá /cancelar si preferís arrancar de nuevo."
     );
